@@ -8,9 +8,7 @@ from bs4 import BeautifulSoup
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 PRICE_FILE = "last_price.txt"
-
-# Send message regardless of the last-updated price
-SEND_ALWAYS = True
+SEND_ALWAYS = os.getenv("SEND_ALWAYS", True) # Send message regardless of the last-updated price
 
 # Defined constants to avoid repetition
 GOLD_URL = "https://www.goodreturns.in/gold-rates/hyderabad.html"
@@ -157,6 +155,7 @@ if __name__ == "__main__":
             print("ℹ️ Prices unchanged.")
     else:
         print("❌ Failed to scrape valid data. Check website layout.")
+
 
 
 
