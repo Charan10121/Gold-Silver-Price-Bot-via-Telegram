@@ -9,6 +9,9 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 PRICE_FILE = "last_price.txt"
 
+# Send message regardless of the last-updated price
+SEND_ALWAYS = True
+
 # Defined constants to avoid repetition
 GOLD_URL = "https://www.goodreturns.in/gold-rates/hyderabad.html"
 SILVER_URL = "https://www.goodreturns.in/silver-rates/hyderabad.html"
@@ -100,12 +103,26 @@ def get_price_diff(current_str, last_str):
     except (ValueError, AttributeError):
         return ""
 
+def send_always(data):
+    """Always send the current prices to Telegram, ignoring last saved state."""
+    msg = (f"💰 *Hyderabad Price Update*\n\n"
+           f"🟡 *24K Gold:* ₹{data['24K']}/gm\n"
+           f"🟠 *22K Gold:* ₹{data['22K']}/gm\n"
+           f"⚪ *Silver:* ₹{data['Silver']}/gm\n\n"
+           f"📈 [Check Source on Website]\n({GOLD_URL})\n({SILVER_URL})")
+    send_telegram(msg)
+
+
 if __name__ == "__main__":
     current_data = get_hyderabad_rates()
     print(f"🔎 Extracted Data: {current_data}")
     
     if current_data["24K"] != "N/A":
         current_state = f"{current_data['24K']}-{current_data['22K']}-{current_data['Silver']}"
+
+        if SEND_ALWAYS: 
+            send_always(current_data)
+            return
         
         # Load last prices
         last_prices = {"24K": "N/A", "22K": "N/A", "Silver": "N/A"}
@@ -131,7 +148,6 @@ if __name__ == "__main__":
                    f"⚪ *Silver:* ₹{current_data['Silver']}/gm{diff_silver}\n\n"
                    f"📈 [Check Source on Website]\n({GOLD_URL})\n({SILVER_URL})")
             
-            print(msg) 
             send_telegram(msg)
             
             with open(PRICE_FILE, "w") as f:
@@ -141,4 +157,5 @@ if __name__ == "__main__":
             print("ℹ️ Prices unchanged.")
     else:
         print("❌ Failed to scrape valid data. Check website layout.")
+
 
