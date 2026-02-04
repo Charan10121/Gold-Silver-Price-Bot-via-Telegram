@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 PRICE_FILE = "last_price.txt"
-SEND_ALWAYS = os.getenv("SEND_ALWAYS", True) # Send message regardless of the last-updated price
+SEND_ALWAYS = False # Send message regardless of the last-updated price
 
 # Defined constants to avoid repetition
 GOLD_URL = "https://www.goodreturns.in/gold-rates/hyderabad.html"
@@ -88,6 +88,8 @@ def send_telegram(message):
         
 def get_price_diff(current_str, last_str):
     """Calculates difference and returns formatted string with emoji."""
+    if(current_str == last_str):
+        return ""
     try:
         curr = float(current_str.replace(",", ""))
         last = float(last_str.replace(",", ""))
@@ -101,15 +103,6 @@ def get_price_diff(current_str, last_str):
     except (ValueError, AttributeError):
         return ""
 
-def send_always(data):
-    """Always send the current prices to Telegram, ignoring last saved state."""
-    msg = (f"💰 *Hyderabad Price Update*\n\n"
-           f"🟡 *24K Gold:* ₹{data['24K']}/gm\n"
-           f"🟠 *22K Gold:* ₹{data['22K']}/gm\n"
-           f"⚪ *Silver:* ₹{data['Silver']}/gm\n\n"
-           f"📈 [Check Source on Website]\n({GOLD_URL})\n({SILVER_URL})")
-    send_telegram(msg)
-
 
 if __name__ == "__main__":
     current_data = get_hyderabad_rates()
@@ -117,10 +110,6 @@ if __name__ == "__main__":
     
     if current_data["24K"] != "N/A":
         current_state = f"{current_data['24K']}-{current_data['22K']}-{current_data['Silver']}"
-
-        if SEND_ALWAYS: 
-            send_always(current_data)
-            raise SystemExit
         
         # Load last prices
         last_prices = {"24K": "N/A", "22K": "N/A", "Silver": "N/A"}
@@ -133,21 +122,18 @@ if __name__ == "__main__":
                 if len(parts) == 3:
                     last_prices = {"24K": parts[0], "22K": parts[1], "Silver": parts[2]}
         
-        if current_state != last_state:
-            # Calculate differences
-            diff_24k = get_price_diff(current_data["24K"], last_prices["24K"])
-            diff_22k = get_price_diff(current_data["22K"], last_prices["22K"])
-            diff_silver = get_price_diff(current_data["Silver"], last_prices["Silver"])
-            
-            # Clean clickable links
-            msg = (f"💰 *Hyderabad Price Update*\n\n"
-                   f"🟡 *24K Gold:* ₹{current_data['24K']}/gm{diff_24k}\n"
-                   f"🟠 *22K Gold:* ₹{current_data['22K']}/gm{diff_22k}\n"
-                   f"⚪ *Silver:* ₹{current_data['Silver']}/gm{diff_silver}\n\n"
-                   f"📈 [Check Source on Website]\n({GOLD_URL})\n({SILVER_URL})")
-            
+        diff_24k = get_price_diff(current_data["24K"], last_prices["24K"])
+        diff_22k = get_price_diff(current_data["22K"], last_prices["22K"])
+        diff_silver = get_price_diff(current_data["Silver"], last_prices["Silver"])
+    
+        msg = (f"💰 *Hyderabad Price Update*\n\n"
+               f"🟡 *24K Gold:* ₹{current_data['24K']}/gm{diff_24k}\n"
+               f"🟠 *22K Gold:* ₹{current_data['22K']}/gm{diff_22k}\n"
+               f"⚪ *Silver:* ₹{current_data['Silver']}/gm{diff_silver}\n\n"
+               f"📈 [Check Source on Website]\n({GOLD_URL})\n({SILVER_URL})")
+
+        if SEND_ALWAYS or current_state != last_state: 
             send_telegram(msg)
-            
             with open(PRICE_FILE, "w") as f:
                 f.write(current_state)
             print("✅ Update sent to Telegram.")
@@ -155,7 +141,3 @@ if __name__ == "__main__":
             print("ℹ️ Prices unchanged.")
     else:
         print("❌ Failed to scrape valid data. Check website layout.")
-
-
-
-
