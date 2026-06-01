@@ -1,6 +1,7 @@
 import cloudscraper
 import os
 import re
+import sys
 import requests
 from bs4 import BeautifulSoup
 
@@ -33,7 +34,7 @@ def get_price_from_header(soup, header_pattern):
             table = header.find_next("table")
             if table:
                 for row in table.find_all("tr"):
-                    cols = row.find_all("td")
+                    cols = row.find_all(["td", "th"])
                     if len(cols) >= 2:
                         col0 = cols[0].get_text().strip().lower()
                         if col0 in ["1", "1g", "1 gram", "1 gm"]:
@@ -42,6 +43,27 @@ def get_price_from_header(soup, header_pattern):
         print(f"Error extracting {header_pattern}: {e}")
     
     return "N/A"
+
+def get_gold_from_cards(soup):
+    """Primary: extracts 24K and 22K prices from individual .gr-price-card.gold-each-container cards."""
+    result = {"24K": "N/A", "22K": "N/A"}
+    try:
+        cards = soup.select(".gr-price-card.gold-each-container")
+        print(f"  🔍 Found {len(cards)} price card(s).")
+        for card in cards:
+            text = card.get_text(" ", strip=True)
+            if "24K" in text and result["24K"] == "N/A":
+                m = re.search(r'₹\s*([\d,]+)', text)
+                if m:
+                    result["24K"] = m.group(1)
+            elif "22K" in text and result["22K"] == "N/A":
+                m = re.search(r'₹\s*([\d,]+)', text)
+                if m:
+                    result["22K"] = m.group(1)
+    except Exception as e:
+        print(f"  ⚠️ Card extraction error: {e}")
+    return result
+
 
 def get_hyderabad_rates():
     scraper = cloudscraper.create_scraper()
@@ -53,8 +75,9 @@ def get_hyderabad_rates():
         res = scraper.get(GOLD_URL)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
-            data["24K"] = get_price_from_header(soup, "24 Carat")
-            data["22K"] = get_price_from_header(soup, "22 Carat")
+            gold_data = get_gold_from_cards(soup)
+            data["24K"] = gold_data["24K"]
+            data["22K"] = gold_data["22K"]
         else:
             print(f"❌ Gold Request Failed: {res.status_code}")
     except Exception as e:
@@ -142,3 +165,4 @@ if __name__ == "__main__":
             print("ℹ️ Prices unchanged.")
     else:
         print("❌ Failed to scrape valid data. Check website layout.")
+        sys.exit(1)
